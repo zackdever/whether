@@ -1,5 +1,10 @@
+from collections import defaultdict, OrderedDict
+import os
+
 import forecastio
 import gpxpy
+
+FORECAST_KEY = os.environ['FORECAST']
 
 def main(start_date, end_date, gpx_file):
     with open(gpx_file) as f:
@@ -9,12 +14,63 @@ def main(start_date, end_date, gpx_file):
     duration = total_days(start_date, end_date)
     distance = get_total_distance(gpx.routes)
     miles = int(round(meters_to_miles(distance)))
+    trackpoints_by_day = get_trackpoints_by_day(gpx.tracks)
 
     print 'Trip summary: %s to %s (%d days), %s miles' % (start_date, end_date,
                                                           duration, miles)
-    #for day in days:
-        #print '%s: High %s\tLow %s' % (day, high, low)
-    return gpx
+    for day, points in trackpoints_by_day.items():
+        point = points[len(points) / 2]
+        weather = get_weather(point.latitude, point.longitude, point.time)
+        high = weather['temperatureMax']
+        low = weather['temperatureMin']
+        print '%s: High %s\tLow %s\t%s' % (day, high, low, weather['summary'])
+    return trackpoints_by_day
+
+def get_weather(lat, lng, time):
+    """
+    'apparentTemperatureMax': 80.44,
+    'apparentTemperatureMaxTime': 1412197200,
+    'apparentTemperatureMin': 51.27,
+    'apparentTemperatureMinTime': 1412168400,
+    'cloudCover': 0.01,
+    'dewPoint': 39.32,
+    'humidity': 0.42,
+    'icon': u'clear-day',
+    'moonPhase': 0.25,
+    'precipIntensity': 0,
+    'precipIntensityMax': 0,
+    'precipProbability': 0,
+    'pressure': 1007.88,
+    'summary': u'Clear throughout the day.',
+    'sunriseTime': 1412168944,
+    'sunsetTime': 1412211650,
+    'temperatureMax': 82.45,
+    'temperatureMaxTime': 1412197200,
+    'temperatureMin': 51.27,
+    'temperatureMinTime': 1412168400,
+    'time': 1412143200,
+    'visibility': 9.62,
+    'windBearing': 256,
+    'windSpeed': 6.77
+    """
+    forecast = forecastio.load_forecast(FORECAST_KEY, lat, lng, time=time,
+                                        units='us')
+    return forecast.daily().data[0].d
+
+def get_trackpoints_by_day(tracks):
+    """
+    Return a dictionary of trackpoint lists, keyed by date.
+    """
+    trackpoints = defaultdict(list)
+    for track in tracks:
+        for segment in track.segments:
+            for point in segment.points:
+                trackpoints[point.time.date()].append(point)
+
+    date_sorted = OrderedDict()
+    for date, points in sorted(trackpoints.items()):
+        date_sorted[date] = points
+    return date_sorted
 
 def make_tracks(routes, start_date, end_date):
     """
