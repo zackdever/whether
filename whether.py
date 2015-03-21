@@ -1,5 +1,14 @@
-def main(start, end, gpx):
+import gpxpy
+
+def main(start, end, gpx_file):
+    gpx = gpxpy.parse(open(gpx_file))
+
+    distance = 2700 # TODO get total distance traveled from GPX
+
     duration = total_days(start, end)
+    location_by_day = {}
+    #for segment in gpx.segments:
+
     print 'Trip summary: %s to %s (%d days)' % (start, end, duration)
 
 def total_days(start, end):
@@ -36,7 +45,7 @@ if __name__ == '__main__':
                         type=date_arg)
     parser.add_argument('--days', help='Duration of trip in days',
                         type=days_arg)
-    parser.add_argument('--gpx', help='GPX file(s)', nargs='+')
+    parser.add_argument('--gpx', help='GPX file')
     args = parser.parse_args()
 
     date_error = ('Invalid date arguments. Must provide either --start and '
