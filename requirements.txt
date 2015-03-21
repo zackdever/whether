@@ -1,1 +1,2 @@
 https://github.com/tkrajina/gpxpy/archive/master.zip
+python-forecastio

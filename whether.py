@@ -1,15 +1,36 @@
 import gpxpy
+from gpxpy import geo
 
 def main(start, end, gpx_file):
-    gpx = gpxpy.parse(open(gpx_file))
-
-    distance = 2700 # TODO get total distance traveled from GPX
+    with open(gpx_file) as f:
+        gpx = gpxpy.parse(f)
 
     duration = total_days(start, end)
-    location_by_day = {}
-    #for segment in gpx.segments:
+    #location_by_day = {}
+    distance = get_total_distance(gpx.routes)
+    miles = int(round(meters_to_miles(distance)))
 
-    print 'Trip summary: %s to %s (%d days)' % (start, end, duration)
+    print 'Trip summary: %s to %s (%d days), %s miles' % (start, end, duration,
+                                                          miles)
+
+def get_total_distance(routes):
+    """
+    Travel all points on the routes and return the total distance.
+    """
+    total_distance, p1, p2 = 0, None, None
+    def distance(p1, p2):
+        return geo.distance(p1.latitude, p1.longitude, p1.elevation,
+                            p2.latitude, p2.longitude, p2.elevation)
+    for route in routes:
+        for point in route.points:
+            p1 = p2
+            p2 = point
+            if p1 and p2:
+                total_distance += distance(p1, p2)
+    return total_distance
+
+def meters_to_miles(meters):
+    return meters / 1609.34
 
 def total_days(start, end):
     return (end - start + datetime.timedelta(days=1)).days

@@ -1,4 +1,8 @@
 #!/usr/bin/env python
+"""
+Combine multiple GPX files into a single GPX file.
+$ ./combine_gpx.py *.gpx -o combined.gpx
+"""
 
 import argparse
 
