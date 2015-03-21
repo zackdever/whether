@@ -1,33 +1,73 @@
+import forecastio
 import gpxpy
-from gpxpy import geo
 
-def main(start, end, gpx_file):
+def main(start_date, end_date, gpx_file):
     with open(gpx_file) as f:
         gpx = gpxpy.parse(f)
+    gpx.tracks = make_tracks(gpx.routes, start_date, end_date)
 
-    duration = total_days(start, end)
-    #location_by_day = {}
+    duration = total_days(start_date, end_date)
     distance = get_total_distance(gpx.routes)
     miles = int(round(meters_to_miles(distance)))
 
-    print 'Trip summary: %s to %s (%d days), %s miles' % (start, end, duration,
-                                                          miles)
+    print 'Trip summary: %s to %s (%d days), %s miles' % (start_date, end_date,
+                                                          duration, miles)
+    #for day in days:
+        #print '%s: High %s\tLow %s' % (day, high, low)
+    return gpx
+
+def make_tracks(routes, start_date, end_date):
+    """
+    Construct tracks with time from the given routes.
+    Time is set relative to each point's position along the route, with the
+    starting point have the start date and the last point having end date.
+    """
+    start_datetime = datetime.datetime.combine(start_date, datetime.datetime.min.time())
+    total_distance = get_total_distance(routes)
+    duration = total_days(start_date, end_date)
+    tracks = []
+
+    traveled, previous_point = 0, None
+    for route in routes:
+        points = []
+        for p in route.points:
+            if previous_point:
+                traveled += get_distance(previous_point, p)
+                trip_time = duration * traveled / total_distance
+                time = start_datetime + datetime.timedelta(days=trip_time)
+            else:
+                time = start_datetime
+            previous_point = p
+            point = gpxpy.gpx.GPXTrackPoint(latitude=p.latitude,
+                       longitude=p.longitude, elevation=p.elevation,
+                       time=time, symbol=p.symbol, comment=p.comment,
+                       horizontal_dilution=p.horizontal_dilution,
+                       vertical_dilution=p.vertical_dilution,
+                       position_dilution=p.position_dilution, name=p.name)
+            points.append(point)
+        track = gpxpy.gpx.GPXTrack(name=route.name,
+                                   description=route.description,
+                                   number=route.number)
+        track.segments.append(gpxpy.gpx.GPXTrackSegment(points))
+        tracks.append(track)
+    return tracks
 
 def get_total_distance(routes):
     """
     Travel all points on the routes and return the total distance.
     """
-    total_distance, p1, p2 = 0, None, None
-    def distance(p1, p2):
-        return geo.distance(p1.latitude, p1.longitude, p1.elevation,
-                            p2.latitude, p2.longitude, p2.elevation)
+    total_distance = 0
+    previous_point = None
     for route in routes:
         for point in route.points:
-            p1 = p2
-            p2 = point
-            if p1 and p2:
-                total_distance += distance(p1, p2)
+            if previous_point:
+                total_distance += get_distance(previous_point, point)
+            previous_point = point
     return total_distance
+
+def get_distance(p1, p2):
+    return gpxpy.geo.distance(p1.latitude, p1.longitude, p1.elevation,
+                              p2.latitude, p2.longitude, p2.elevation)
 
 def meters_to_miles(meters):
     return meters / 1609.34
